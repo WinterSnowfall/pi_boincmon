@@ -53,6 +53,5 @@ if __name__ == "__main__":
     password_helper_instance = password_helper()
     encrypted_password = password_helper_instance.encrypt_password(master_password, password_to_encypt)
     print(f'Encrypted text is: {encrypted_password}')
-    
-    decoded_password = password_helper_instance.decrypt_password(master_password, encrypted_password)
+    #decoded_password = password_helper_instance.decrypt_password(master_password, encrypted_password)
     #print(f'Sanity check - decoded password is: {decoded_password}')
