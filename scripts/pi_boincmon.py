@@ -118,7 +118,7 @@ try:
                    
             try:
                 ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, password=boinc_host_entry.password, timeout=SSH_TIMEOUT)
-                parent_ssh_command = f'ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} | grep boinc | wc -l'
+                parent_ssh_command = f'ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} | grep -w boinc | wc -l'
                 logger.debug(f'Issuing parent ssh command: {parent_ssh_command}')
                 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(parent_ssh_command)
                 
@@ -130,7 +130,7 @@ try:
                     logger.info('The BOINC service is running.')
 
                     ssh_command = (f'ps -h --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}' 
-                                    " | grep boinc | awk '{print $1}'` | wc -l")
+                                    " | grep -w boinc | awk '{print $1}'` | wc -l")
                     logger.debug(f'Issuing ssh command: {ssh_command}')
                     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(ssh_command)
                     ssh_stdin.close()
@@ -142,7 +142,7 @@ try:
                             #if there is only one task running on the host
                             if output == 1:
                                 usage_ssh_command = (f'ps -h -o pcpu --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}' 
-                                                     " | grep boinc | awk '{print $1}'` | awk '{print $1}'")
+                                                     " | grep -w boinc | awk '{print $1}'` | awk '{print $1}'")
                                 logger.debug(f'Issuing usage ssh command: {usage_ssh_command}')
                                 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(usage_ssh_command)
                                 ssh_stdin.close()
