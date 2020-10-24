@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 1.10
-@date: 27/03/2020
+@version: 1.20
+@date: 23/10/2020
 '''
 
 import paramiko
 import requests
+import signal
 import json
 import logging
-from sys import exit
-from logging import FileHandler
 from configparser import ConfigParser
 from os import path
 from time import sleep
@@ -24,32 +23,16 @@ conf_file_full_path = path.join('..', 'conf', 'boinc_host.conf')
 
 ##logging configuration block
 log_file_full_path = path.join('..', 'logs', 'pi_boincmon_service.log')
+logger_file_handler = logging.FileHandler(log_file_full_path, mode='w', encoding='utf-8')
 logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
-logger_file_handler = FileHandler(log_file_full_path, mode='w', encoding='utf-8')
-logger_file_formatter = logging.Formatter(logger_format)
-logger_file_handler.setFormatter(logger_file_formatter)
+logger_file_handler.setFormatter(logging.Formatter(logger_format))
 logging.basicConfig(format=logger_format, level=logging.INFO) #DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger = logging.getLogger(__name__)
 logger.addHandler(logger_file_handler)
 
-#reading from config file
-configParser.read(conf_file_full_path)
-
-BLINK_INTERVAL_NO_BOINC = configParser['GENERAL']['blink_interval_no_boinc']
-BLINK_INTERVAL_NO_WORK = configParser['GENERAL']['blink_interval_no_work']
-BLINK_INTERVAL_LESS_WORK = configParser['GENERAL']['blink_interval_less_work']
-LED_SERVER_ENDPOINT = configParser['GENERAL']['led_server_endpoint']
-LED_SERVER_TIMEOUT = int(configParser['GENERAL']['led_server_timeout'])
-LED_PAYLOAD_LEFT_PADDING = configParser['GENERAL']['led_payload_left_padding']
-LED_PAYLOAD_LEFT_PADDING_LEN = len(LED_PAYLOAD_LEFT_PADDING)
-LED_PAYLOAD_RIGHT_PADDING = configParser['GENERAL']['led_payload_right_padding']
-LED_PAYLOAD = configParser['GENERAL']['led_payload_format']
-BOINC_CPU_USAGE_THRESHOLD = int(configParser['GENERAL']['boinc_cpu_usage_threshold'])
-SCAN_INTERVAL = int(configParser['GENERAL']['scan_interval'])
-SSH_TIMEOUT = int(configParser['GENERAL']['ssh_timeout'])
-HEADERS = {'content-type': 'application/json'}
-
-psw_helper = password_helper()
+def sigterm_handler(signum, frame):
+    logger.info('Stopping boincmon due to SIGTERM...')
+    raise SystemExit(0)
 
 class boinc_host:
     def __init__(self, name, ip, username, password, led_no, boinc_username, host_cpus):
@@ -60,16 +43,38 @@ class boinc_host:
         self.led_no = led_no
         self.boinc_username = boinc_username
         self.host_cpus = host_cpus
-        
+
 #read the master password from the command line
 password = input('Please enter the master password: ')
 
 if password == '':
     logger.critical('No password has been provided - exiting.')
-    exit(1)
+    raise SystemExit(2)
 
 logger.info('Service is starting...')
 
+try:
+    #reading from config file
+    configParser.read(conf_file_full_path)
+    
+    BLINK_INTERVAL_NO_BOINC = configParser['GENERAL']['blink_interval_no_boinc']
+    BLINK_INTERVAL_NO_WORK = configParser['GENERAL']['blink_interval_no_work']
+    BLINK_INTERVAL_LESS_WORK = configParser['GENERAL']['blink_interval_less_work']
+    LED_SERVER_ENDPOINT = configParser['GENERAL']['led_server_endpoint']
+    LED_SERVER_TIMEOUT = int(configParser['GENERAL']['led_server_timeout'])
+    LED_PAYLOAD_LEFT_PADDING = configParser['GENERAL']['led_payload_left_padding']
+    LED_PAYLOAD_LEFT_PADDING_LEN = len(LED_PAYLOAD_LEFT_PADDING)
+    LED_PAYLOAD_RIGHT_PADDING = configParser['GENERAL']['led_payload_right_padding']
+    LED_PAYLOAD = configParser['GENERAL']['led_payload_format']
+    BOINC_CPU_USAGE_THRESHOLD = int(configParser['GENERAL']['boinc_cpu_usage_threshold'])
+    SCAN_INTERVAL = int(configParser['GENERAL']['scan_interval'])
+    SSH_TIMEOUT = int(configParser['GENERAL']['ssh_timeout'])
+    HEADERS = {'content-type': 'application/json'}
+except:
+    logger.critical('Could not parse configuration file. Please make sure the appropriate structure is in place!')
+    raise SystemExit(1)
+
+psw_helper = password_helper()
 boinc_hosts_array = []
 current_host_no = 1
 
@@ -95,6 +100,9 @@ try:
         
 except KeyError:
     logger.info(f'BOINC host info parsing complete. Read {current_host_no - 1} entries.')
+    
+#catch SIGTERM and exit gracefully
+signal.signal(signal.SIGTERM, sigterm_handler)
     
 try:
     while True:
@@ -130,7 +138,7 @@ try:
                     logger.info('The BOINC service is running.')
 
                     ssh_command = (f'ps -h --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}' 
-                                    " | grep -w boinc | awk '{print $1}'` | wc -l")
+                                    ' | grep -w boinc | awk \'{print $1}\'` | wc -l')
                     logger.debug(f'Issuing ssh command: {ssh_command}')
                     ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(ssh_command)
                     ssh_stdin.close()
@@ -142,7 +150,7 @@ try:
                             #if there is only one task running on the host
                             if output == 1:
                                 usage_ssh_command = (f'ps -h -o pcpu --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}' 
-                                                     " | grep -w boinc | awk '{print $1}'` | awk '{print $1}'")
+                                                     ' | grep -w boinc | awk \'{print $1}\'` | awk \'{print $1}\'')
                                 logger.debug(f'Issuing usage ssh command: {usage_ssh_command}')
                                 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(usage_ssh_command)
                                 ssh_stdin.close()
@@ -182,10 +190,10 @@ try:
                 logger.warning('The server could not be reached.')
                 command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '0').replace('$led_blink', '0')
             
-            except Exception as error:
+            except Exception:
                 logger.error(f'Error occured during checkup - server may be down or experiencing issues.')
-                #uncomment for debugging only
-                #logger.error(repr(error))
+                #uncomment for debugging purposes only
+                #raise
                 command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '0').replace('$led_blink', '0')
             
             finally:
@@ -204,6 +212,7 @@ try:
         logger.info('Sleeping until next checkup...')
         sleep(SCAN_INTERVAL)
         
-except Exception as error:
-    logger.error(repr(error))
-    logger.info('Exiting boincmon service...')
+except KeyboardInterrupt:
+    pass
+    
+logger.info('Exiting boincmon service...')
