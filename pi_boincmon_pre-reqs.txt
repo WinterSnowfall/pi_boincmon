@@ -1,6 +1,6 @@
-#Linux (Python 3.6+)
+#Ubuntu/Mint
 python3-paramiko
 
-#Raspbian
+#Raspberry Pi OS
 python3-paramiko
 

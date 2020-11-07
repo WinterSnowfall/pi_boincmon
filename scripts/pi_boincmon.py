@@ -49,7 +49,7 @@ password = input('Please enter the master password: ')
 
 if password == '':
     logger.critical('No password has been provided - exiting.')
-    raise SystemExit(2)
+    raise SystemExit(1)
 
 logger.info('Service is starting...')
 
@@ -72,7 +72,7 @@ try:
     HEADERS = {'content-type': 'application/json'}
 except:
     logger.critical('Could not parse configuration file. Please make sure the appropriate structure is in place!')
-    raise SystemExit(1)
+    raise SystemExit(2)
 
 psw_helper = password_helper()
 boinc_hosts_array = []
