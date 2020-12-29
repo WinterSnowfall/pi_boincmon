@@ -14,6 +14,8 @@ from configparser import ConfigParser
 from os import path
 from time import sleep
 from pi_password import password_helper
+#uncomment for debugging purposes only
+#import traceback
 
 ##global parameters init
 configParser = ConfigParser()
@@ -217,7 +219,7 @@ try:
                 except Exception:
                     logger.error(f'Error occured during checkup - server may be down or experiencing issues.')
                     #uncomment for debugging purposes only
-                    #raise
+                    #logger.error(traceback.format_exc())
                     command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '0').replace('$led_blink', '0')
                 
                 finally:
