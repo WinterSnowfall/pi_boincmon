@@ -133,9 +133,6 @@ try:
         #preparing the final command string
         command_string = LED_PAYLOAD_LEFT_PADDING
         
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        
         for boinc_host_entry in boinc_hosts_array:
             logger.info(f'Checking {boinc_host_entry.name}...')
             
@@ -149,6 +146,9 @@ try:
                 
             else:
                 try:
+                    ssh = paramiko.SSHClient()
+                    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        
                     ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, password=boinc_host_entry.password, timeout=SSH_TIMEOUT)
                     parent_ssh_command = f'ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} | grep -w boinc | wc -l'
                     logger.debug(f'Issuing parent ssh command: {parent_ssh_command}')
