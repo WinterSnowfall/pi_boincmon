@@ -134,6 +134,7 @@ try:
         command_string = LED_PAYLOAD_LEFT_PADDING
         
         for boinc_host_entry in boinc_hosts_array:
+            logger.info('-----------------------------------------------')
             logger.info(f'Checking {boinc_host_entry.name}...')
             
             #add an element separator before each item
@@ -222,6 +223,9 @@ try:
                 
                 finally:
                     ssh.close()
+                    
+        if len(boinc_hosts_array) > 0:
+            logger.info('-----------------------------------------------')
         
         #ending the command string
         command_string += LED_PAYLOAD_RIGHT_PADDING
