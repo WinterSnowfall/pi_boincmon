@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 1.30
-@date: 29/12/2020
+@version: 1.40
+@date: 17/01/2021
 '''
 
 import paramiko
@@ -24,7 +24,7 @@ configParser = ConfigParser()
 conf_file_full_path = path.join('..', 'conf', 'boinc_host.conf')
 
 ##logging configuration block
-log_file_full_path = path.join('..', 'logs', 'pi_boincmon_service.log')
+log_file_full_path = path.join('..', 'logs', 'pi_boincmon.log')
 logger_file_handler = logging.FileHandler(log_file_full_path, mode='w', encoding='utf-8')
 logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
 logger_file_handler.setFormatter(logging.Formatter(logger_format))
@@ -88,8 +88,6 @@ try:
     while True:
         #reading from config file
         current_host_section = configParser[f'HOST{current_host_no}']
-        
-        ## common section
         #name of the remote BOINC host
         current_host_name = current_host_section.get('name')
         #number of expected tasks on the remote host
@@ -161,7 +159,7 @@ try:
                     logger.debug(f'Parent ssh command output is: {output}')
                     
                     if output == 1:
-                        logger.info('The BOINC service is running.')
+                        logger.debug('The BOINC service is running.')
     
                         ssh_command = (f'ps -h --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}' 
                                         ' | grep -w boinc | awk \'{print $1}\'` | wc -l')
@@ -193,7 +191,7 @@ try:
                                         command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_LESS_WORK)
                                 
                                 else:
-                                    logger.warning('BOINC tasks are being worked on (below expected task count).')
+                                    logger.info('BOINC tasks are being worked on (below expected task count).')
                                     command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_LESS_WORK)
                                 
                             else:
@@ -229,12 +227,13 @@ try:
         command_string += LED_PAYLOAD_RIGHT_PADDING
                 
         logger.info('Checkup rounds complete. Updating LEDs...')
+        
         logger.debug(f'Sending payload: {command_string}')
         data = json.loads(command_string)
         requests.post(LED_SERVER_ENDPOINT, json=data, headers=HEADERS, timeout=LED_SERVER_TIMEOUT)
+        
         logger.info('LEDs updated.')
                 
-        #regular sleep interval between checkups
         logger.info('Sleeping until next checkup...')
         sleep(SCAN_INTERVAL)
         
