@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 1.40
-@date: 17/01/2021
+@version: 1.50
+@date: 01/02/2021
 '''
 
 import paramiko
@@ -28,8 +28,11 @@ log_file_full_path = path.join('..', 'logs', 'pi_boincmon.log')
 logger_file_handler = logging.FileHandler(log_file_full_path, mode='w', encoding='utf-8')
 logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
 logger_file_handler.setFormatter(logging.Formatter(logger_format))
-logging.basicConfig(format=logger_format, level=logging.INFO) #DEBUG, INFO, WARNING, ERROR, CRITICAL
+#logging level for other modules
+logging.basicConfig(format=logger_format, level=logging.WARNING) #DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger = logging.getLogger(__name__)
+#logging level for current logger
+logger.setLevel(logging.INFO) #DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger.addHandler(logger_file_handler)
 
 def sigterm_handler(signum, frame):

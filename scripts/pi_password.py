@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 1.00
-@date: 23/02/2020
+@version: 1.10
+@date: 01/02/2021
 '''
 
 import os
@@ -13,16 +13,19 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 class password_helper:
+    ALGORITHM = hashes.SHA512
+    ITERATIONS = 100000
+    LENGTH = 32
+    SALT_LENGTH = 16
+    
     def __init__(self):
-        self.algorithm = hashes.SHA512
-        self.length = 32
-        self.iterations = 100000
         self.backend = default_backend()
     
     def encrypt_password(self, master_password, password_to_store):
-        salt = os.urandom(32)
+        salt = os.urandom(self.SALT_LENGTH)
+        
         master_password_bytes = master_password.encode()
-        kdf = PBKDF2HMAC(self.algorithm, self.length, salt, self.iterations, self.backend)
+        kdf = PBKDF2HMAC(self.ALGORITHM, self.LENGTH, salt, self.ITERATIONS, self.backend)
         key = base64.urlsafe_b64encode(kdf.derive(master_password_bytes))
         
         encryption_function = Fernet(key)
@@ -33,12 +36,11 @@ class password_helper:
     
     def decrypt_password(self, master_password, encrypted_string_base64):
         encrypted_string = base64.urlsafe_b64decode(encrypted_string_base64.encode())
-        
-        salt = encrypted_string[:32]
-        encrypted_password = encrypted_string[32:]
+        salt = encrypted_string[:self.SALT_LENGTH]
+        encrypted_password = encrypted_string[self.SALT_LENGTH:]
         
         master_password_bytes = master_password.encode()
-        kdf = PBKDF2HMAC(self.algorithm, self.length, salt, self.iterations, self.backend)
+        kdf = PBKDF2HMAC(self.ALGORITHM, self.LENGTH, salt, self.ITERATIONS, self.backend)
         key = base64.urlsafe_b64encode(kdf.derive(master_password_bytes))
         
         decryption_function = Fernet(key)
