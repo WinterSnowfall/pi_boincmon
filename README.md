@@ -23,7 +23,3 @@ Look under the /conf folder for a sample config file. You can add as many host e
 ## What's with the wierd passwords?
 
 I've written a separate module to encrypt the ssh user passwords of the monitored hosts using a master password. To generate the encrypted text that you need to add in the config file just run pi_password.py and follow the on-screen prompts.
-
-## I still don't get stuff. How do I get in touch with you?
-
-Raise an issue on GitHub and I'll reply as soon as I can.
