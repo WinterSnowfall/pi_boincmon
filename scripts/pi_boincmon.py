@@ -29,7 +29,7 @@ logger_file_handler = logging.FileHandler(log_file_full_path, mode='w', encoding
 logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
 logger_file_handler.setFormatter(logging.Formatter(logger_format))
 #logging level for other modules
-logging.basicConfig(format=logger_format, level=logging.WARNING) #DEBUG, INFO, WARNING, ERROR, CRITICAL
+logging.basicConfig(format=logger_format, level=logging.ERROR) #DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger = logging.getLogger(__name__)
 #logging level for current logger
 logger.setLevel(logging.INFO) #DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -218,7 +218,7 @@ try:
                     logger.warning('The server could not be reached.')
                     command_string += LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '0').replace('$led_blink', '0')
                 
-                except Exception:
+                except:
                     logger.error(f'Error occured during checkup - server may be down or experiencing issues.')
                     #uncomment for debugging purposes only
                     #logger.error(traceback.format_exc())
