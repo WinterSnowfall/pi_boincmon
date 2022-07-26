@@ -23,3 +23,14 @@ Look under the /conf folder for a sample config file. You can add as many host e
 ## What's with the wierd passwords?
 
 I've written a separate module to encrypt the ssh user passwords of the monitored hosts using a master password. To generate the encrypted text that you need to add in the config file just run pi_password.py and follow the on-screen prompts.
+
+## Can't I use a ssh key to connect to my hosts, instead of passwords?
+
+Why, yes. Why bother with passwords anyway, right? You'll need to set:
+
+```
+ssh_key_authentication = true
+```
+
+In the .conf file and provide the path to your private ssh key. Doing so will make pi_boincmon ignore all (if any) host password entries. Note that you'll have to take care of propagating the key yourself and configuring a working ssh setup between the local host and your BOINC hosts.
+
