@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 2.00
-@date: 26/07/2022
+@version: 2.01
+@date: 28/07/2022
 '''
 
 import paramiko
@@ -28,7 +28,7 @@ conf_file_full_path = path.join('..', 'conf', 'boinc_host.conf')
 
 ##logging configuration block
 log_file_full_path = path.join('..', 'logs', 'pi_boincmon.log')
-logger_file_handler = logging.FileHandler(log_file_full_path, mode='w', encoding='utf-8')
+logger_file_handler = logging.FileHandler(log_file_full_path, encoding='utf-8')
 logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
 logger_file_handler.setFormatter(logging.Formatter(logger_format))
 #logging level for other modules
