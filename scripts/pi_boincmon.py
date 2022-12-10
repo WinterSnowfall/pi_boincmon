@@ -28,8 +28,8 @@ logger_file_handler.setFormatter(logging.Formatter(logger_format))
 #logging level for other modules
 logging.basicConfig(format=logger_format, level=logging.ERROR) #DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger = logging.getLogger(__name__)
-#logging level for current logger
-logger.setLevel(logging.INFO) #DEBUG, INFO, WARNING, ERROR, CRITICAL
+#logging level defaults to INFO, but can be later modified through config file values
+logger.setLevel(logging.INFO)
 logger.addHandler(logger_file_handler)
 
 def sigterm_handler(signum, frame):
@@ -63,14 +63,28 @@ if __name__ == "__main__":
     HEADERS = {'content-type': 'application/json'}
     BOINC_HOST_DELIMITER = ', '
     
-    logger.info('boincmon is starting...')
-    
     configParser = ConfigParser()
     
     try:
         #reading from config file
         configParser.read(conf_file_full_path)
+        
         general_section = configParser['GENERAL']
+        LOGGING_LEVEL = general_section.get('logging_level').upper()
+        
+        #DEBUG, INFO, WARNING, ERROR, CRITICAL
+        #remains set to INFO if none of the other valid log levels are specified
+        if LOGGING_LEVEL == 'INFO':
+            pass
+        elif LOGGING_LEVEL == 'DEBUG':
+            logger.setLevel(logging.DEBUG)
+        elif LOGGING_LEVEL == 'WARNING':
+            logger.setLevel(logging.WARNING)
+        elif LOGGING_LEVEL == 'ERROR':
+            logger.setLevel(logging.ERROR)
+        elif LOGGING_LEVEL == 'CRITICAL':
+            logger.setLevel(logging.CRITICAL)
+        
         #note that the cron job mode is meant to be used primarily with ssh key authentication
         CRON_JOB_MODE = general_section.getboolean('cron_job_mode')
         BLINK_INTERVAL_NO_BOINC = general_section.get('blink_interval_no_boinc')
@@ -93,8 +107,6 @@ if __name__ == "__main__":
         logger.critical('Could not parse configuration file. Please make sure the appropriate structure is in place!')
         raise SystemExit(1)
     
-    LED_PAYLOAD_LEFT_PADDING_LEN = len(LED_PAYLOAD_LEFT_PADDING)
-    
     if SSH_KEY_AUTHENTICATION:
         try:
             SSH_PRIVATE_KEY = paramiko.RSAKey.from_private_key_file(SSH_PRIVATE_KEY_PATH)
@@ -112,6 +124,8 @@ if __name__ == "__main__":
             raise SystemExit(3)
         
         psw_helper = password_helper()
+        
+    logger.info('boincmon is starting...')
     
     boinc_hosts_array = []
     current_host_no = 1
