@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 2.20
-@date: 10/12/2022
+@version: 2.22
+@date: 26/06/2022
 '''
 
 import paramiko
@@ -15,21 +15,21 @@ from os import path
 from time import sleep
 from pi_password import password_helper
 #uncomment for debugging purposes only
-#import traceback
+# import traceback
 
-##conf file block
-conf_file_full_path = path.join('..', 'conf', 'boinc_host.conf')
+# conf file block
+CONF_FILE_PATH = path.join('..', 'conf', 'boinc_host.conf')
 
-##logging configuration block
-log_file_full_path = path.join('..', 'logs', 'pi_boincmon.log')
-logger_file_handler = logging.FileHandler(log_file_full_path, encoding='utf-8')
-logger_format = '%(asctime)s %(levelname)s >>> %(message)s'
-logger_file_handler.setFormatter(logging.Formatter(logger_format))
-#logging level for other modules
-logging.basicConfig(format=logger_format, level=logging.ERROR) #DEBUG, INFO, WARNING, ERROR, CRITICAL
+# logging configuration block
+LOG_FILE_PATH = path.join('..', 'logs', 'pi_boincmon.log')
+logger_file_handler = logging.FileHandler(LOG_FILE_PATH, encoding='utf-8')
+LOGGER_FORMAT = '%(asctime)s %(levelname)s >>> %(message)s'
+logger_file_handler.setFormatter(logging.Formatter(LOGGER_FORMAT))
+# logging level for other modules
+logging.basicConfig(format=LOGGER_FORMAT, level=logging.ERROR)
 logger = logging.getLogger(__name__)
-#logging level defaults to INFO, but can be later modified through config file values
-logger.setLevel(logging.INFO)
+# logging level defaults to INFO, but can be later modified through config file values
+logger.setLevel(logging.INFO) # DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger.addHandler(logger_file_handler)
 
 def sigterm_handler(signum, frame):
@@ -54,29 +54,25 @@ class boinc_host:
         self.processes = processes
 
 if __name__ == "__main__":
-    #catch SIGTERM and exit gracefully
+    # catch SIGTERM and exit gracefully
     signal.signal(signal.SIGTERM, sigterm_handler)
-    #catch SIGINT and exit gracefully
+    # catch SIGINT and exit gracefully
     signal.signal(signal.SIGINT, sigint_handler)
     
-    #HTTP headers to be used for all HTTP POST requests
+    # HTTP headers to be used for all HTTP POST requests
     HEADERS = {'content-type': 'application/json'}
     BOINC_HOST_DELIMITER = ', '
     
     configParser = ConfigParser()
     
     try:
-        #reading from config file
-        configParser.read(conf_file_full_path)
+        configParser.read(CONF_FILE_PATH)
         
         general_section = configParser['GENERAL']
         LOGGING_LEVEL = general_section.get('logging_level').upper()
         
-        #DEBUG, INFO, WARNING, ERROR, CRITICAL
-        #remains set to INFO if none of the other valid log levels are specified
-        if LOGGING_LEVEL == 'INFO':
-            pass
-        elif LOGGING_LEVEL == 'DEBUG':
+        #remains set to 'INFO' if none of the other valid log levels are specified
+        if LOGGING_LEVEL == 'DEBUG':
             logger.setLevel(logging.DEBUG)
         elif LOGGING_LEVEL == 'WARNING':
             logger.setLevel(logging.WARNING)
@@ -85,7 +81,7 @@ if __name__ == "__main__":
         elif LOGGING_LEVEL == 'CRITICAL':
             logger.setLevel(logging.CRITICAL)
         
-        #note that the cron job mode is meant to be used primarily with ssh key authentication
+        # note that the cron job mode is meant to be used primarily with ssh key authentication
         CRON_JOB_MODE = general_section.getboolean('cron_job_mode')
         BLINK_INTERVAL_NO_BOINC = general_section.get('blink_interval_no_boinc')
         BLINK_INTERVAL_NO_WORK = general_section.get('blink_interval_no_work')
@@ -110,13 +106,13 @@ if __name__ == "__main__":
     if SSH_KEY_AUTHENTICATION:
         try:
             SSH_PRIVATE_KEY = paramiko.RSAKey.from_private_key_file(SSH_PRIVATE_KEY_PATH)
-        #paramiko supports the OpenSSH private key format starting with version 2.7.1
+        # paramiko supports the OpenSSH private key format starting with version 2.7.1
         except paramiko.ssh_exception.SSHException:
-            #can be converted with 'ssh-keygen -p -m PEM -f id_rsa'
+            # can be converted with 'ssh-keygen -p -m PEM -f id_rsa'
             logger.critical('Could not parse SSH key. Either upgrade paramiko or convert your SSH key to the PEM format!')
             raise SystemExit(2)
     else:
-        #read the master password from the command line
+        # read the master password from the command line
         password = input('Please enter the master password: ')
         
         if password == '':
@@ -132,25 +128,24 @@ if __name__ == "__main__":
     
     try:
         while True:
-            #reading from config file
             current_host_section = configParser[f'HOST{current_host_no}']
-            #name of the remote BOINC host
+            # name of the remote BOINC host
             current_host_name = current_host_section.get('name')
-            #number of expected tasks on the remote host
+            # number of expected tasks on the remote host
             current_host_processes = current_host_section.getint('processes')
-            #led number linked to the BOINC host
+            # led number linked to the BOINC host
             current_host_led_no = current_host_section.get('led_no')
-            #ip address or hostname of the remote host
+            # ip address or hostname of the remote host
             current_host_ip = current_host_section.get('ip')
-            #username used for the ssh connection
+            # username used for the ssh connection
             current_host_username = current_host_section.get('username')
-            #no need to process passwords if we are using key based ssh authentication
+            # no need to process passwords if we are using key based ssh authentication
             if not SSH_KEY_AUTHENTICATION:
-                #encrypted password of the above user - use the password utilities script to get the encrypted text
+                # encrypted password of the above user - use the password utilities script to get the encrypted text
                 current_host_password = psw_helper.decrypt_password(password, current_host_section.get('password'))
             else:
                 current_host_password = None
-            #remote user under which the BOINC processes are being run
+            # remote user under which the BOINC processes are being run
             current_host_boinc_user = current_host_section.get('boinc_user')
             
             boinc_hosts_array.append(boinc_host(current_host_name, current_host_ip, current_host_username, current_host_password, 
@@ -169,7 +164,7 @@ if __name__ == "__main__":
     try:
         while loopRunner:
             logger.info('Starting checkup round...')
-            #turn on the update status routine
+            # turn on the update status routine
             try:
                 on_status_routine = json.loads(''.join((LED_PAYLOAD_LEFT_PADDING, 
                                                         LED_PAYLOAD.replace('$led_no', '0').replace('$led_state', '1').replace('$led_blink', '0'), 
@@ -193,7 +188,7 @@ if __name__ == "__main__":
                             ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, pkey=SSH_PRIVATE_KEY, timeout=SSH_TIMEOUT)
                         else:
                             ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, password=boinc_host_entry.password, timeout=SSH_TIMEOUT)
-                        parent_ssh_command = f'ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} | grep -w boinc | wc -l'
+                        parent_ssh_command = f'pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc | wc -l'
                         logger.debug(f'Issuing parent ssh command: {parent_ssh_command}')
                         ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(parent_ssh_command)
                         
@@ -204,8 +199,7 @@ if __name__ == "__main__":
                         if output == 1:
                             logger.debug('The BOINC service is running.')
                             
-                            ssh_command = (f'ps -h --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}'
-                                            ' | grep -w boinc | awk \'{print $1}\'` | wc -l')
+                            ssh_command = (f'ps -h --ppid $(pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc) | wc -l')
                             logger.debug(f'Issuing ssh command: {ssh_command}')
                             ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(ssh_command)
                             ssh_stdin.close()
@@ -214,18 +208,18 @@ if __name__ == "__main__":
                             
                             if output > 0:
                                 if output < boinc_host_entry.processes:
-                                    #if there is only one task running on the host
+                                    # if there is only one task running on the host
                                     if output == 1:
-                                        usage_ssh_command = (f'ps -h -o pcpu --ppid `ps -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username}'
-                                                             ' | grep -w boinc | awk \'{print $1}\'` | awk \'{print $1}\'')
+                                        # retrieve the pCPU (usage) parameter for each child BOINC process (these should generally be individual workunits)
+                                        usage_ssh_command = (f'ps -h -o pcpu --ppid $(pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc)')
                                         logger.debug(f'Issuing usage ssh command: {usage_ssh_command}')
                                         ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(usage_ssh_command)
                                         ssh_stdin.close()
-                                        #using float, as the initial number may not be parsed by int
+                                        # using float, as the initial number may not be parsed by int
                                         output = int(float(ssh_stdout.read().decode('utf-8').strip()))
                                         logger.debug(f'Usage ssh command output is: {output}')
                                         
-                                        #if the overall cpu usage is more than BOINC_USAGE_THRESHOLD * the number of expected BOINC processes
+                                        # if the overall cpu usage is more than BOINC_USAGE_THRESHOLD * the number of expected BOINC processes
                                         if output > BOINC_USAGE_THRESHOLD * boinc_host_entry.processes:
                                             logger.info('BOINC tasks are being worked on (expected cpu usage).')
                                             boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', '0'))
@@ -263,7 +257,7 @@ if __name__ == "__main__":
                     
                     except:
                         logger.error(f'Error occured during checkup - server may be down or experiencing issues.')
-                        #uncomment for debugging purposes only
+                        # uncomment for debugging purposes only
                         #logger.error(traceback.format_exc())
                         boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '0').replace('$led_blink', '0'))
             
