@@ -14,8 +14,8 @@ from configparser import ConfigParser
 from os import path
 from time import sleep
 from pi_password import password_helper
-#uncomment for debugging purposes only
-# import traceback
+# uncomment for debugging purposes only
+#import traceback
 
 # conf file block
 CONF_FILE_PATH = path.join('..', 'conf', 'boinc_host.conf')
@@ -59,8 +59,7 @@ if __name__ == "__main__":
     # catch SIGINT and exit gracefully
     signal.signal(signal.SIGINT, sigint_handler)
     
-    # HTTP headers to be used for all HTTP POST requests
-    HEADERS = {'content-type': 'application/json'}
+    HTTP_HEADERS = {'content-type': 'application/json'}
     BOINC_HOST_DELIMITER = ', '
     
     configParser = ConfigParser()
@@ -169,7 +168,7 @@ if __name__ == "__main__":
                 on_status_routine = json.loads(''.join((LED_PAYLOAD_LEFT_PADDING, 
                                                         LED_PAYLOAD.replace('$led_no', '0').replace('$led_state', '1').replace('$led_blink', '0'), 
                                                         LED_PAYLOAD_RIGHT_PADDING)))
-                requests.post(LED_SERVER_ENDPOINT, json=on_status_routine, headers=HEADERS, timeout=LED_SERVER_TIMEOUT)
+                requests.post(LED_SERVER_ENDPOINT, json=on_status_routine, headers=HTTP_HEADERS, timeout=LED_SERVER_TIMEOUT)
             except:
                 logger.warning(f'Update status routine failed - unable to connect to the LED server.')
                 
@@ -269,7 +268,7 @@ if __name__ == "__main__":
                 data = json.loads(''.join((LED_PAYLOAD_LEFT_PADDING, 
                                            BOINC_HOST_DELIMITER.join(boinc_host_commands), 
                                            LED_PAYLOAD_RIGHT_PADDING)))
-                requests.post(LED_SERVER_ENDPOINT, json=data, headers=HEADERS, timeout=LED_SERVER_TIMEOUT)
+                requests.post(LED_SERVER_ENDPOINT, json=data, headers=HTTP_HEADERS, timeout=LED_SERVER_TIMEOUT)
                 
                 logger.info('LEDs updated.')
             except:
