@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 2.22
-@date: 26/06/2022
+@version: 2.23
+@date: 30/11/2022
 '''
 
 import paramiko
@@ -102,14 +102,22 @@ if __name__ == "__main__":
         logger.critical('Could not parse configuration file. Please make sure the appropriate structure is in place!')
         raise SystemExit(1)
     
+    logger.info('boincmon is starting...')
+    
     if SSH_KEY_AUTHENTICATION:
+        # try to parse Ed25519 keys at first and fallback to RSA if that fails
         try:
-            SSH_PRIVATE_KEY = paramiko.RSAKey.from_private_key_file(SSH_PRIVATE_KEY_PATH)
-        # paramiko supports the OpenSSH private key format starting with version 2.7.1
+            SSH_PRIVATE_KEY = paramiko.Ed25519Key.from_private_key_file(SSH_PRIVATE_KEY_PATH)
+            logger.debug('Parsed SSH key using Ed25519.')
         except paramiko.ssh_exception.SSHException:
-            # can be converted with 'ssh-keygen -p -m PEM -f id_rsa'
-            logger.critical('Could not parse SSH key. Either upgrade paramiko or convert your SSH key to the PEM format!')
-            raise SystemExit(2)
+            try:
+                SSH_PRIVATE_KEY = paramiko.RSAKey.from_private_key_file(SSH_PRIVATE_KEY_PATH)
+                logger.debug('Parsed SSH key using RSA.')
+            # paramiko supports the OpenSSH RSA private key format starting with version 2.7.1
+            except paramiko.ssh_exception.SSHException:
+                # can be converted with 'ssh-keygen -p -m PEM -f id_rsa'
+                logger.critical('Could not parse SSH key. Either upgrade paramiko or convert your SSH key to the PEM format!')
+                raise SystemExit(2)
     else:
         # read the master password from the command line
         password = input('Please enter the master password: ')
@@ -120,8 +128,6 @@ if __name__ == "__main__":
         
         psw_helper = password_helper()
         
-    logger.info('boincmon is starting...')
-    
     boinc_hosts_array = []
     current_host_no = 1
     
