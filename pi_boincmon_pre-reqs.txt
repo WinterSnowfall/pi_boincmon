@@ -1,6 +1,0 @@
-#Ubuntu/Mint
-python3-paramiko
-
-#Raspberry Pi OS
-python3-paramiko
-
