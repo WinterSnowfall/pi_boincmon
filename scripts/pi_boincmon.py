@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 2.23
-@date: 30/11/2022
+@version: 2.30
+@date: 26/12/2023
 '''
 
 import paramiko
@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO) # DEBUG, INFO, WARNING, ERROR, CRITICAL
 logger.addHandler(logger_file_handler)
 
+# CONSTANTS
+HTTP_HEADERS = {'content-type': 'application/json'}
+BOINC_HOST_DELIMITER = ', '
+
 def sigterm_handler(signum, frame):
     logger.debug('Stopping boincmon due to SIGTERM...')
     
@@ -44,23 +48,19 @@ def sigint_handler(signum, frame):
 
 class boinc_host:
     
-    def __init__(self, name, ip, username, password, led_no, boinc_username, processes):
+    def __init__(self, name, ip, username, password, led_no, tasks):
         self.name = name
         self.ip = ip
         self.username = username
         self.password = password
         self.led_no = led_no
-        self.boinc_username = boinc_username
-        self.processes = processes
+        self.tasks = tasks
 
 if __name__ == "__main__":
     # catch SIGTERM and exit gracefully
     signal.signal(signal.SIGTERM, sigterm_handler)
     # catch SIGINT and exit gracefully
     signal.signal(signal.SIGINT, sigint_handler)
-    
-    HTTP_HEADERS = {'content-type': 'application/json'}
-    BOINC_HOST_DELIMITER = ', '
     
     configParser = ConfigParser()
     
@@ -82,15 +82,16 @@ if __name__ == "__main__":
         
         # note that the cron job mode is meant to be used primarily with ssh key authentication
         CRON_JOB_MODE = general_section.getboolean('cron_job_mode')
-        BLINK_INTERVAL_NO_BOINC = general_section.get('blink_interval_no_boinc')
-        BLINK_INTERVAL_NO_WORK = general_section.get('blink_interval_no_work')
-        BLINK_INTERVAL_LESS_WORK = general_section.get('blink_interval_less_work')
+        SSH_COMMAND_SERVICE = general_section.get('ssh_command_service')
+        BLINK_INTERVAL_NO_SERVICE = general_section.get('blink_interval_no_service')
+        SSH_COMMAND_TASKS = general_section.get('ssh_command_tasks')
+        BLINK_INTERVAL_NO_TASKS = general_section.get('blink_interval_no_tasks')
+        BLINK_INTERVAL_LESS_TASKS = general_section.get('blink_interval_less_tasks')
         LED_SERVER_ENDPOINT = general_section.get('led_server_endpoint')
         LED_SERVER_TIMEOUT = general_section.getint('led_server_timeout')
         LED_PAYLOAD_LEFT_PADDING = general_section.get('led_payload_left_padding')
         LED_PAYLOAD_RIGHT_PADDING = general_section.get('led_payload_right_padding')
         LED_PAYLOAD = general_section.get('led_payload_format')
-        BOINC_USAGE_THRESHOLD = general_section.getint('boinc_usage_threshold')
         if not CRON_JOB_MODE:
             SCAN_INTERVAL = general_section.getint('scan_interval')
         SSH_KEY_AUTHENTICATION = general_section.getboolean('ssh_key_authentication')
@@ -137,7 +138,7 @@ if __name__ == "__main__":
             # name of the remote BOINC host
             current_host_name = current_host_section.get('name')
             # number of expected tasks on the remote host
-            current_host_processes = current_host_section.getint('processes')
+            current_host_tasks = current_host_section.getint('tasks')
             # led number linked to the BOINC host
             current_host_led_no = current_host_section.get('led_no')
             # ip address or hostname of the remote host
@@ -150,11 +151,9 @@ if __name__ == "__main__":
                 current_host_password = psw_helper.decrypt_password(password, current_host_section.get('password'))
             else:
                 current_host_password = None
-            # remote user under which the BOINC processes are being run
-            current_host_boinc_user = current_host_section.get('boinc_user')
             
-            boinc_hosts_array.append(boinc_host(current_host_name, current_host_ip, current_host_username, current_host_password, 
-                                                current_host_led_no, current_host_boinc_user, current_host_processes))
+            boinc_hosts_array.append(boinc_host(current_host_name, current_host_ip, current_host_username,  
+                                                current_host_password, current_host_led_no, current_host_tasks))
             current_host_no += 1
     
     except KeyError:
@@ -193,51 +192,29 @@ if __name__ == "__main__":
                             ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, pkey=SSH_PRIVATE_KEY, timeout=SSH_TIMEOUT)
                         else:
                             ssh.connect(boinc_host_entry.ip, username=boinc_host_entry.username, password=boinc_host_entry.password, timeout=SSH_TIMEOUT)
-                        parent_ssh_command = f'pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc | wc -l'
-                        logger.debug(f'Issuing parent ssh command: {parent_ssh_command}')
-                        ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(parent_ssh_command)
+                        logger.debug(f'Issuing BOINC service ssh command: {SSH_COMMAND_SERVICE}')
+                        ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(SSH_COMMAND_SERVICE)
                         
                         ssh_stdin.close()
-                        output = int(ssh_stdout.read().decode('utf-8').strip())
-                        logger.debug(f'Parent ssh command output is: {output}')
+                        output = int(ssh_stdout.read().decode('utf-8'))
+                        logger.debug(f'BOINC service ssh command output is: {output}')
                         
                         if output == 1:
                             logger.debug('The BOINC service is running.')
                             
-                            ssh_command = (f'ps -h --ppid $(pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc) | wc -l')
-                            logger.debug(f'Issuing ssh command: {ssh_command}')
-                            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(ssh_command)
+                            logger.debug(f'Issuing BOINC tasks ssh command: {SSH_COMMAND_TASKS}')
+                            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(SSH_COMMAND_TASKS)
                             ssh_stdin.close()
-                            output = int(ssh_stdout.read().decode('utf-8').strip())
-                            logger.debug(f'ssh command output is: {output}')
+                            output = int(ssh_stdout.read().decode('utf-8'))
+                            logger.debug(f'BOINC tasks ssh command output is: {output}')
                             
                             if output > 0:
-                                if output < boinc_host_entry.processes:
-                                    # if there is only one task running on the host
-                                    if output == 1:
-                                        # retrieve the pCPU (usage) parameter for each child BOINC process (these should generally be individual workunits)
-                                        usage_ssh_command = (f'ps -h -o pcpu --ppid $(pgrep -u {boinc_host_entry.boinc_username} -U {boinc_host_entry.boinc_username} -x boinc)')
-                                        logger.debug(f'Issuing usage ssh command: {usage_ssh_command}')
-                                        ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(usage_ssh_command)
-                                        ssh_stdin.close()
-                                        # using float, as the initial number may not be parsed by int
-                                        output = int(float(ssh_stdout.read().decode('utf-8').strip()))
-                                        logger.debug(f'Usage ssh command output is: {output}')
-                                        
-                                        # if the overall cpu usage is more than BOINC_USAGE_THRESHOLD * the number of expected BOINC processes
-                                        if output > BOINC_USAGE_THRESHOLD * boinc_host_entry.processes:
-                                            logger.info('BOINC tasks are being worked on (expected cpu usage).')
-                                            boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', '0'))
-                                        else:
-                                            logger.info('BOINC tasks are being worked on (below expected cpu usage).')
-                                            boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_LESS_WORK))
-                                    
-                                    else:
-                                        logger.info('BOINC tasks are being worked on (below expected task count).')
-                                        boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_LESS_WORK))
+                                if output < boinc_host_entry.tasks:
+                                    logger.info('BOINC tasks are being worked on (below expected task count).')
+                                    boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_LESS_TASKS))
                                 
                                 else:
-                                    if output == boinc_host_entry.processes:
+                                    if output == boinc_host_entry.tasks:
                                         logger.info('BOINC tasks are being worked on (expected task count).')
                                         boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', '0'))
                                     else:
@@ -246,11 +223,11 @@ if __name__ == "__main__":
                             
                             else:
                                 logger.info('No BOINC tasks are being worked on.')
-                                boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_NO_WORK))
+                                boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_NO_TASKS))
                         
                         else:
                             logger.info('The BOINC service is not running.')
-                            boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_NO_BOINC))
+                            boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_NO_SERVICE))
                     
                     except paramiko.ssh_exception.NoValidConnectionsError:
                         logger.warning('The server could not be reached.')
