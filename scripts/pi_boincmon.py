@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 '''
 @author: Winter Snowfall
-@version: 2.30
-@date: 26/12/2023
+@version: 2.32
+@date: 28/12/2023
 '''
 
 import paramiko
@@ -48,12 +48,14 @@ def sigint_handler(signum, frame):
 
 class boinc_host:
     
-    def __init__(self, name, ip, username, password, led_no, tasks):
+    def __init__(self, name, ip, username, password, gpu, led_no, gpu_led_no, tasks):
         self.name = name
         self.ip = ip
         self.username = username
         self.password = password
+        self.gpu = gpu
         self.led_no = led_no
+        self.gpu_led_no = gpu_led_no
         self.tasks = tasks
 
 if __name__ == "__main__":
@@ -83,8 +85,9 @@ if __name__ == "__main__":
         # note that the cron job mode is meant to be used primarily with ssh key authentication
         CRON_JOB_MODE = general_section.getboolean('cron_job_mode')
         SSH_COMMAND_SERVICE = general_section.get('ssh_command_service')
-        BLINK_INTERVAL_NO_SERVICE = general_section.get('blink_interval_no_service')
+        BLINK_INTERVAL_NO_SERVICE = BLINK_INTERVAL_GPU_NO_TASKS = general_section.get('blink_interval_no_service')
         SSH_COMMAND_TASKS = general_section.get('ssh_command_tasks')
+        SSH_COMMAND_GPU_TASKS = general_section.get('ssh_command_gpu_tasks')
         BLINK_INTERVAL_NO_TASKS = general_section.get('blink_interval_no_tasks')
         BLINK_INTERVAL_LESS_TASKS = general_section.get('blink_interval_less_tasks')
         LED_SERVER_ENDPOINT = general_section.get('led_server_endpoint')
@@ -137,10 +140,6 @@ if __name__ == "__main__":
             current_host_section = configParser[f'HOST{current_host_no}']
             # name of the remote BOINC host
             current_host_name = current_host_section.get('name')
-            # number of expected tasks on the remote host
-            current_host_tasks = current_host_section.getint('tasks')
-            # led number linked to the BOINC host
-            current_host_led_no = current_host_section.get('led_no')
             # ip address or hostname of the remote host
             current_host_ip = current_host_section.get('ip')
             # username used for the ssh connection
@@ -151,9 +150,20 @@ if __name__ == "__main__":
                 current_host_password = psw_helper.decrypt_password(password, current_host_section.get('password'))
             else:
                 current_host_password = None
+            # gpu presence and monitoring for the remote host
+            current_host_gpu = current_host_section.getboolean('gpu')
+            # LED number linked to the BOINC host's overall task state
+            current_host_led_no = current_host_section.get('led_no')
+            # LED number linked to the BOINC host's gpu task state
+            if current_host_gpu:
+                current_host_gpu_led_no = current_host_section.get('gpu_led_no')
+            else:
+                current_host_gpu_led_no = None
+            # number of expected tasks on the remote host
+            current_host_tasks = current_host_section.getint('tasks')
             
-            boinc_hosts_array.append(boinc_host(current_host_name, current_host_ip, current_host_username,  
-                                                current_host_password, current_host_led_no, current_host_tasks))
+            boinc_hosts_array.append(boinc_host(current_host_name, current_host_ip, current_host_username, current_host_password,
+                                                current_host_gpu, current_host_led_no, current_host_gpu_led_no, current_host_tasks))
             current_host_no += 1
     
     except KeyError:
@@ -224,6 +234,24 @@ if __name__ == "__main__":
                             else:
                                 logger.info('No BOINC tasks are being worked on.')
                                 boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_NO_TASKS))
+                                
+                            if boinc_host_entry.gpu:
+                                logger.debug(f'Issuing BOINC GPU tasks ssh command: {SSH_COMMAND_GPU_TASKS}')
+                                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(SSH_COMMAND_GPU_TASKS)
+                                ssh_stdin.close()
+                                output = int(ssh_stdout.read().decode('utf-8'))
+                                logger.debug(f'BOINC GPU tasks ssh command output is: {output}')
+                                
+                                if output > 0:
+                                    if output == 1:
+                                        logger.info('BOINC GPU tasks are being worked on (expected task count).')
+                                        boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.gpu_led_no).replace('$led_state', '1').replace('$led_blink', '0'))
+                                    else:
+                                        logger.warning('BOINC GPU tasks are being worked on (more than expected task count).')
+                                        boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.gpu_led_no).replace('$led_state', '1').replace('$led_blink', '0'))
+                                else:
+                                    logger.info('No BOINC GPU tasks are being worked on.')
+                                    boinc_host_commands.append(LED_PAYLOAD.replace('$led_no', boinc_host_entry.gpu_led_no).replace('$led_state', '1').replace('$led_blink', BLINK_INTERVAL_GPU_NO_TASKS))
                         
                         else:
                             logger.info('The BOINC service is not running.')
